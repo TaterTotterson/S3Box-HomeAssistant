@@ -24,6 +24,7 @@ Everything is rendered locally on the device and pulls live data from Home Assis
   - Lightning strikes
 - 🎨 Black / white / orange color scheme
 - 💡 Backlight always on (configurable)
+![IMG_0178-ezgif com-resize](https://github.com/user-attachments/assets/9c4b1395-4962-4266-a3be-a287958e7bf1)
 
 ---
 
