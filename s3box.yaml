@@ -1,37 +1,31 @@
 substitutions:
-  device_name: normanv-display
-  friendly_name: NormanV Display
+  device_name: tater-display-livingroom
+  friendly_name: Tater Display Livingroom
 
+  # ─────────────────────────────────────────
   # EASY TO CHANGE HOME ASSISTANT ENTITIES
-  sensor_temp_out: sensor.outdoor_temperature
-  sensor_temp_in: sensor.indoor_temperature
+  # ─────────────────────────────────────────
+  sensor_temp_out: sensor.weather_outdoor_temperature
+  sensor_temp_in: sensor.living_room_temperature
+
+  sensor_humidity_out: sensor.humidity
+  sensor_humidity_in: sensor.up_sense_humidity_level
+
   sensor_wind_speed: sensor.wind_speed
   sensor_rain_rate: sensor.rain_rate
-  sensor_lightning_strikes: sensor.lightning_strikes_today
+  sensor_lightning_strikes: sensor.weather_lightning_strikes
 
 esphome:
   name: ${device_name}
   friendly_name: ${friendly_name}
   min_version: 2024.12.2
 
-# ESP32-S3-BOX (same approach as your old YAML)
-external_components:
-  - source:
-      type: git
-      url: https://github.com/esphome/esphome
-      ref: 2025.11.0
-    components: [ esp32 ]
-
 esp32:
-  board: esp32s3box
+  board: esp32-s3-devkitc-1
   variant: esp32s3
   framework:
     type: esp-idf
     version: recommended
-
-psram:
-  mode: octal
-  speed: 80MHz
 
 wifi:
   ssid: !secret wifi_ssid
@@ -39,9 +33,7 @@ wifi:
   use_address: 10.4.20.237
 
 logger:
-
 api:
-
 ota:
   - platform: esphome
 
@@ -49,7 +41,9 @@ time:
   - platform: homeassistant
     id: ha_time
 
-# HA sensors
+# ─────────────────────────────────────────
+# HOME ASSISTANT SENSORS
+# ─────────────────────────────────────────
 sensor:
   - platform: homeassistant
     id: temp_out
@@ -58,6 +52,14 @@ sensor:
   - platform: homeassistant
     id: temp_in
     entity_id: ${sensor_temp_in}
+
+  - platform: homeassistant
+    id: humidity_out
+    entity_id: ${sensor_humidity_out}
+
+  - platform: homeassistant
+    id: humidity_in
+    entity_id: ${sensor_humidity_in}
 
   - platform: homeassistant
     id: wind_speed
@@ -71,7 +73,47 @@ sensor:
     id: lightning_strikes
     entity_id: ${sensor_lightning_strikes}
 
-# Spinner state
+# ─────────────────────────────────────────
+# S3 BOX DISPLAY WIRING
+# ─────────────────────────────────────────
+spi:
+  clk_pin: GPIO7
+  mosi_pin: GPIO6
+
+output:
+  - platform: ledc
+    pin: GPIO47
+    id: backlight_output
+
+light:
+  - platform: monochromatic
+    id: lcd_backlight
+    name: LCD Backlight
+    entity_category: config
+    output: backlight_output
+    restore_mode: ALWAYS_ON
+    default_transition_length: 50ms
+
+# ─────────────────────────────────────────
+# COLORS
+# ─────────────────────────────────────────
+color:
+  - id: black
+    red: 0%
+    green: 0%
+    blue: 0%
+  - id: white
+    red: 100%
+    green: 100%
+    blue: 100%
+  - id: orange
+    red: 100%
+    green: 45%
+    blue: 0%
+
+# ─────────────────────────────────────────
+# SPINNER STATE
+# ─────────────────────────────────────────
 globals:
   - id: spinner_idx
     type: int
@@ -84,110 +126,91 @@ interval:
       - lambda: |-
           id(spinner_idx) = (id(spinner_idx) + 1) % 3;
 
-# Colors (orange accents like old YAML)
-color:
-  - id: c_black
-    red: 0%
-    green: 0%
-    blue: 0%
-  - id: c_white
-    red: 100%
-    green: 100%
-    blue: 100%
-  - id: c_orange
-    red: 100%
-    green: 55%
-    blue: 0%
-
-# Fonts (URL + gfonts, no /config/fonts required)
+# ─────────────────────────────────────────
+# FONTS + ICONS
+# ─────────────────────────────────────────
 font:
-  # Good readable UI fonts
-  - file: "gfonts://Roboto"
-    id: font_small
+  # Text fonts
+  - file: "https://github.com/TaterTotterson/S3Box-HomeAssistant/raw/refs/heads/main/fonts/consola.ttf"
+    id: consola_20
     size: 20
 
-  - file: "gfonts://Roboto"
-    id: font_medium
-    size: 28
+  - file: "https://github.com/TaterTotterson/S3Box-HomeAssistant/raw/refs/heads/main/fonts/consola.ttf"
+    id: consola_30
+    size: 30
 
-  - file: "gfonts://Roboto"
-    id: font_date
-    size: 34
+  - file: "https://github.com/TaterTotterson/S3Box-HomeAssistant/raw/refs/heads/main/fonts/consola.ttf"
+    id: consola_40
+    size: 40
 
-  - file: "gfonts://Roboto"
-    id: font_time
-    size: 64
+  - file: "https://github.com/TaterTotterson/S3Box-HomeAssistant/raw/refs/heads/main/fonts/consola.ttf"
+    id: consola_60
+    size: 60
 
-  - file: "gfonts://Roboto"
-    id: font_value
-    size: 52
-
-  # MDI icons (same “remote file” style as your old YAML)
-  - file: https://github.com/MasterPhooey/Norm-Peterson-HomeAssistant-AI/raw/main/fonts/materialdesignicons-webfont.ttf
+  # Icons (MDI)
+  - file: "https://github.com/TaterTotterson/S3Box-HomeAssistant/raw/refs/heads/main/fonts/materialdesignicons-webfont.ttf"
     id: mdi_80
     size: 80
     glyphs:
-      - "\U000F059D" # wind
-      - "\U000F067F" # rain
-      - "\U000F06E7" # lightning
+      - "\U000F059E" # wind
+      - "\U000F0597" # rain
+      - "\U000F0593" # lightning
 
-  - file: https://github.com/MasterPhooey/Norm-Peterson-HomeAssistant-AI/raw/main/fonts/materialdesignicons-webfont.ttf
-    id: mdi_40
-    size: 40
-    glyphs:
-      - "\U000F059D" # wind
-      - "\U000F067F" # rain
-      - "\U000F06E7" # lightning
-
-# SPI + TFT
-spi:
-  clk_pin: 7
-  mosi_pin: 6
-
+# ─────────────────────────────────────────
+# DISPLAY
+# ─────────────────────────────────────────
 display:
   - platform: ili9xxx
     id: s3_box_lcd
     model: S3BOX
     data_rate: 40MHz
-    invert_colors: false
-    cs_pin: 5
-    dc_pin: 4
+    cs_pin: GPIO5
+    dc_pin: GPIO4
     reset_pin:
-      number: 48
+      number: GPIO48
       inverted: true
+    invert_colors: false
     update_interval: 1s
     lambda: |-
       auto now = id(ha_time).now();
-
-      // Clear background
-      it.fill(id(c_black));
-
       if (!now.is_valid()) {
-        it.print(160, 120, id(font_medium), id(c_white), TextAlign::CENTER, "Waiting for HA...");
+        it.fill(id(black));
+        it.print(160, 120, id(consola_40), id(white), TextAlign::CENTER, "Waiting for HA...");
         return;
       }
 
-      // --- TOP: Big time centered ---
-      it.strftime(160, 46, id(font_time), id(c_white), TextAlign::CENTER, "%I:%M %p", now);
+      it.fill(id(black));
 
-      // --- Under time: Date in orange ---
-      it.strftime(160, 96, id(font_date), id(c_orange), TextAlign::CENTER, "%a %b %d", now);
+      // DATE
+      it.strftime(160, 6, id(consola_30), id(white), TextAlign::TOP_CENTER, "%A %b %d", now);
 
-      // --- Bottom left/right temps (bigger, like a dashboard) ---
-      // Labels
-      it.print(30, 132, id(font_small), id(c_orange), "IN");
-      it.print(220, 132, id(font_small), id(c_orange), "OUT");
+      // TIME
+      it.strftime(160, 42, id(consola_60), id(white), TextAlign::TOP_CENTER, "%I:%M", now);
+      it.strftime(285, 68, id(consola_30), id(orange), TextAlign::TOP_RIGHT, "%p", now);
 
-      // Values
-      it.printf(18, 156, id(font_value), id(c_white), "%.1f°", id(temp_in).state);
-      it.printf(206, 156, id(font_value), id(c_white), "%.1f°", id(temp_out).state);
+      // IN (label same, temp same size, humidity smaller)
+      it.printf(10, 160, id(consola_30), id(white), "IN");
+      it.printf(10, 185, id(consola_30), id(orange), "%.1f", id(temp_in).state);
+      it.printf(10, 212, id(consola_20), id(white), "%.0f%%", id(humidity_in).state);
 
-      // --- Bottom center rotating weather stat (orange icon) ---
-      const char* icons[] = { "\U000F059D", "\U000F067F", "\U000F06E7" };
-      const char* labels[] = { "Wind", "Rain", "Strikes" };
-      float values[] = { id(wind_speed).state, id(rain_rate).state, id(lightning_strikes).state };
+      // OUT (label same, temp same size, humidity smaller)
+      it.printf(310, 160, id(consola_30), id(white), TextAlign::TOP_RIGHT, "OUT");
+      it.printf(310, 185, id(consola_30), id(orange), TextAlign::TOP_RIGHT, "%.1f", id(temp_out).state);
+      it.printf(310, 212, id(consola_20), id(white), TextAlign::TOP_RIGHT, "%.0f%%", id(humidity_out).state);
 
-      // Icon + label + value centered low
-      it.print(160, 214, id(mdi_40), id(c_orange), TextAlign::CENTER, icons[id(spinner_idx)]);
-      it.printf(190, 204, id(font_small), id(c_white), "%s", labels[id(spinner_idx)]);
-      it.printf(190, 226, id(font_small), id(c_white), "%.1f", values[id(spinner_idx)]);
+      // Spinner icons
+      const char* icons[] = {
+        "\U000F059E", // wind
+        "\U000F0597", // rain
+        "\U000F0593"  // lightning
+      };
+
+      it.print(160, 105, id(mdi_80), id(orange), TextAlign::TOP_CENTER, icons[id(spinner_idx)]);
+
+      // Spinner value
+      float value = 0.0f;
+      if (id(spinner_idx) == 0) value = id(wind_speed).state;
+      else if (id(spinner_idx) == 1) value = id(rain_rate).state;
+      else value = id(lightning_strikes).state;
+
+      it.printf(160, 182, id(consola_30), id(white), TextAlign::TOP_CENTER, "%.1f", value);
