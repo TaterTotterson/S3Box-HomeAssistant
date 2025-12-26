@@ -1,0 +1,193 @@
+substitutions:
+  device_name: normanv-display
+  friendly_name: NormanV Display
+
+  # EASY TO CHANGE HOME ASSISTANT ENTITIES
+  sensor_temp_out: sensor.outdoor_temperature
+  sensor_temp_in: sensor.indoor_temperature
+  sensor_wind_speed: sensor.wind_speed
+  sensor_rain_rate: sensor.rain_rate
+  sensor_lightning_strikes: sensor.lightning_strikes_today
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  min_version: 2024.12.2
+
+# ESP32-S3-BOX (same approach as your old YAML)
+external_components:
+  - source:
+      type: git
+      url: https://github.com/esphome/esphome
+      ref: 2025.11.0
+    components: [ esp32 ]
+
+esp32:
+  board: esp32s3box
+  variant: esp32s3
+  framework:
+    type: esp-idf
+    version: recommended
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  use_address: 10.4.20.237
+
+logger:
+
+api:
+
+ota:
+  - platform: esphome
+
+time:
+  - platform: homeassistant
+    id: ha_time
+
+# HA sensors
+sensor:
+  - platform: homeassistant
+    id: temp_out
+    entity_id: ${sensor_temp_out}
+
+  - platform: homeassistant
+    id: temp_in
+    entity_id: ${sensor_temp_in}
+
+  - platform: homeassistant
+    id: wind_speed
+    entity_id: ${sensor_wind_speed}
+
+  - platform: homeassistant
+    id: rain_rate
+    entity_id: ${sensor_rain_rate}
+
+  - platform: homeassistant
+    id: lightning_strikes
+    entity_id: ${sensor_lightning_strikes}
+
+# Spinner state
+globals:
+  - id: spinner_idx
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+interval:
+  - interval: 2s
+    then:
+      - lambda: |-
+          id(spinner_idx) = (id(spinner_idx) + 1) % 3;
+
+# Colors (orange accents like old YAML)
+color:
+  - id: c_black
+    red: 0%
+    green: 0%
+    blue: 0%
+  - id: c_white
+    red: 100%
+    green: 100%
+    blue: 100%
+  - id: c_orange
+    red: 100%
+    green: 55%
+    blue: 0%
+
+# Fonts (URL + gfonts, no /config/fonts required)
+font:
+  # Good readable UI fonts
+  - file: "gfonts://Roboto"
+    id: font_small
+    size: 20
+
+  - file: "gfonts://Roboto"
+    id: font_medium
+    size: 28
+
+  - file: "gfonts://Roboto"
+    id: font_date
+    size: 34
+
+  - file: "gfonts://Roboto"
+    id: font_time
+    size: 64
+
+  - file: "gfonts://Roboto"
+    id: font_value
+    size: 52
+
+  # MDI icons (same “remote file” style as your old YAML)
+  - file: https://github.com/MasterPhooey/Norm-Peterson-HomeAssistant-AI/raw/main/fonts/materialdesignicons-webfont.ttf
+    id: mdi_80
+    size: 80
+    glyphs:
+      - "\U000F059D" # wind
+      - "\U000F067F" # rain
+      - "\U000F06E7" # lightning
+
+  - file: https://github.com/MasterPhooey/Norm-Peterson-HomeAssistant-AI/raw/main/fonts/materialdesignicons-webfont.ttf
+    id: mdi_40
+    size: 40
+    glyphs:
+      - "\U000F059D" # wind
+      - "\U000F067F" # rain
+      - "\U000F06E7" # lightning
+
+# SPI + TFT
+spi:
+  clk_pin: 7
+  mosi_pin: 6
+
+display:
+  - platform: ili9xxx
+    id: s3_box_lcd
+    model: S3BOX
+    data_rate: 40MHz
+    invert_colors: false
+    cs_pin: 5
+    dc_pin: 4
+    reset_pin:
+      number: 48
+      inverted: true
+    update_interval: 1s
+    lambda: |-
+      auto now = id(ha_time).now();
+
+      // Clear background
+      it.fill(id(c_black));
+
+      if (!now.is_valid()) {
+        it.print(160, 120, id(font_medium), id(c_white), TextAlign::CENTER, "Waiting for HA...");
+        return;
+      }
+
+      // --- TOP: Big time centered ---
+      it.strftime(160, 46, id(font_time), id(c_white), TextAlign::CENTER, "%I:%M %p", now);
+
+      // --- Under time: Date in orange ---
+      it.strftime(160, 96, id(font_date), id(c_orange), TextAlign::CENTER, "%a %b %d", now);
+
+      // --- Bottom left/right temps (bigger, like a dashboard) ---
+      // Labels
+      it.print(30, 132, id(font_small), id(c_orange), "IN");
+      it.print(220, 132, id(font_small), id(c_orange), "OUT");
+
+      // Values
+      it.printf(18, 156, id(font_value), id(c_white), "%.1f°", id(temp_in).state);
+      it.printf(206, 156, id(font_value), id(c_white), "%.1f°", id(temp_out).state);
+
+      // --- Bottom center rotating weather stat (orange icon) ---
+      const char* icons[] = { "\U000F059D", "\U000F067F", "\U000F06E7" };
+      const char* labels[] = { "Wind", "Rain", "Strikes" };
+      float values[] = { id(wind_speed).state, id(rain_rate).state, id(lightning_strikes).state };
+
+      // Icon + label + value centered low
+      it.print(160, 214, id(mdi_40), id(c_orange), TextAlign::CENTER, icons[id(spinner_idx)]);
+      it.printf(190, 204, id(font_small), id(c_white), "%s", labels[id(spinner_idx)]);
+      it.printf(190, 226, id(font_small), id(c_white), "%.1f", values[id(spinner_idx)]);
